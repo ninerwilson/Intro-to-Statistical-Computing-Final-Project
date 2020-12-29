@@ -1,0 +1,241 @@
+---
+title: "Final Project"
+author: 'Group 3E: Rebecca Gerber, Mike Lin, Niner Wilson, Kerry Zhu'
+date: "12/1/2020"
+output:
+  html_document:
+    df_print: paged
+  pdf_document: default
+  word_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+### Set Up
+```{r}
+setwd("C:/Users/snwpu/Documents")
+library(ggplot2)
+library(ggthemes)
+library(dplyr)
+airBnB <- data.frame(read.csv("AIRBnB_NYC.csv", stringsAsFactors = TRUE))
+```
+
+
+<center> <h1>Part A</h1> </center>
+
+## Question A.1
+#### Dataset: AIRBnB_NYC
+In 2008, Airbnb was launched as a streamlined service for homeowners to rent out their homes to travelers searching for places to stay. Since then, its popularity has skyrocketed. Airbnb now has nearly 7 million listings worldwide. Features that make Airbnb stand out are relatively low booking costs and an extensive list of locations to choose from, especially in larger cities where living space is at a premium. Therefore, we selected the “AIRBnB_NYC” data set for our final project, which contains information about Airbnb listings in New York City, with hopes to gain some insight on the platform’s popularity. Our investigation will focus on the cost and availability of Airbnbs for price-conscious solo/duo travelers/tourists interested in temporary housing in New York’s 5 boroughs. After our analysis of this data set, we hope to be able to draw some conclusions on Airbnb’s popularity relative to other traditional options like hotels and motels. 
+
+## Question A.2
+#### Numerical Response Variable: Price 
+We selected price as our numerical price variable because it is one of the most important factors that consumers take into account when looking for a place to stay. We are interested in investigating how other Airbnb listing factors influence listing prices.
+
+#### Summary of Price: 
+```{r}
+summary(airBnB$price) # mean, median, minimum and maximum values for price
+sd(airBnB$price) # standard deviation of the price variable
+```
+
+#### Graph: Frequency of Airbnb listing prices
+```{r fig.align="center"}
+graph1<-ggplot(data=airBnB, aes(price))+
+  geom_bar()+labs(x="Listing Price Per Night", y="Number of Listings", title="Figure 1: Number of NYC AirBnB listings at each respective price point")+theme_classic()+theme(plot.title = element_text(hjust=0.5))
+graph1
+```
+
+## Question A.3
+When examining Figure 1, the first thing we noticed was a significant disparity in the frequency of listing prices. While prices span from $0 to $10,000USD per night, listing prices are mostly concentrated in the first quartile of the graph. So, we decided to take a closer look at the listing prices at the extreme ends of the data set. First we noticed that there were several $0 listings, which we thought was strange because we were not sure how one could profit from letting someone live in their home for free. Thus, we decided to omit the listings that had prices of $0. After creating a new data frame that excluded listings with prices of $0, the lowest priced listing in our data set was $10USD. 
+
+We then looked for outliers on the high end of the scale. We found that there were several listings that had prices of over $1000 per night. We were surprised that there even was a market for multi thousand dollars nightly rentals. When looking at the other variables for the multi thousand dollar listings, we noticed that some of them had zero availability for the entire year. Therefore, we removed these listings, as un-bookable listings provide no value to consumers.
+```{r}
+airBnB<-mutate(airBnB, filteredPrice = price)
+#replace $0 w/ NA: 
+airBnB$filteredPrice<-replace(airBnB$filteredPrice, airBnB$filteredPrice==0, NA)
+#replace 0 availability listing prices w/ NA 
+airBnB$filteredPrice<-replace(airBnB$filteredPrice, airBnB$availability_365==0, NA)
+```
+
+After making the aforementioned adjustments, we noticed that there were still multiple multi thousand dollar listings. To further investigate this, we looked at our filtered price variable, which only contains listings that have prices greater than $0USD and are not un-rentable. There are 31,354 listings that match this criteria: 
+```{r}
+filteredPriceDf<-data.frame(airBnB$filteredPrice)
+colSums(!is.na(filteredPriceDf))
+```
+Of those 31,354 listings, 75 percent of them were priced at or below $189USD. However, we did not decide to use this distribution to filter our data set because as the graph shows, there are many more lower priced listings than higher priced listings. Excluding all listings at or below the 75% mark of listing prices also does not take into account the extremely high cost of living in some urban areas of New York where real estate is generally very high.
+```{r}
+summary(airBnB$filteredPrice)
+```
+
+Instead, we turned to the 2019 fixed NYC lodging per-diem rate set by the US General Services Administration, which is used to reimburse overnight travel expenses within the area for Federal employees (FederalPay.org). The maximum price for reimbursement is for a one night stay is $288USD. 
+*General Services Administration. “Per Diem Rates Look-Up.” Www.Gsa.Gov, 2019, https://www.gsa.gov/travel/plan-book/per-diem-rates/per-diem-rates-lookup/?action=perdiems_report&state=NY&fiscal_year=2019&zip=&city=.*
+Therefore, we decided to omit all listings that were priced above $288 USD. Since our investigation focuses on examining lodging options for price-conscious solo/duo tourists/travelers, we thought the General Services Administration's maximum cutoff price would serve as a for a reasonable cutoff point for our investigation as well.
+```{r fig.align="center"}
+#filter listings over $288 USD 
+airBnB$filteredPrice<-replace(airBnB$filteredPrice, airBnB$price>288, NA)
+```
+
+Here is the adjusted summary and graph:
+```{r fig.align="center"}
+summary(airBnB$filteredPrice)
+graph2<-ggplot(data=airBnB, aes(filteredPrice))+
+  geom_bar(na.rm=TRUE)+labs(x="Listing Price Per Night", y="Number of Listings", title="Figure 2: Number of NYC AirBnB listings\n at each respective price point, adjusted")+theme_classic()+theme(plot.title = element_text(hjust=0.5))
+graph2
+```
+
+## Question A.4
+
+#### Main explanatory variable: minimum_nights
+After examining the price variable, we were interested in exploring how a host's minimum night stay requirement would correlate with the per-night price of the listing. One of the downsides to renting a home through Airbnb, as opposed to renting a home on the housing market, is the duration of the rental period. Most standard leases for homes on the housing market are for a period of one year. So just like hotel and motel rooms must be cleaned in between guests, Airbnb hosts must hire a cleaning service in between guests. Given that the minimum stay requirement for some Airbnb listings is only one night, the overhead cost for this can get pretty high. Thus, some hosts may choose a higher minimum stay requirement in order to minimize some of maintenance hassles. Therefore, we hypothesize that a higher minimum night stay requirement for an Airbnb lsiting will correspond to a lower price-per-night. 
+
+#### Summary of minimum nights: 
+```{r}
+summary(airBnB$minimum_nights)
+sd(airBnB$minimum_nights)
+```
+
+#### Graph: Frequency of Airbnb listing minimum nights
+```{r fig.align="center"}
+
+graph3<-ggplot(data=airBnB, aes(minimum_nights))+
+  geom_bar()+labs(x="Mimimum Night Stay Requirement", y="Number of Listings", title="Figure 3: NYC AirBnB Mimimum Night Stay Requirements")+theme_classic()+theme(plot.title = element_text(hjust=0.5))
+graph3
+```
+
+## Question A.5
+Upon examining our explanatory variable, minimum_nights, we noticed that the minimum night stay requirements ranged from 1 night to 1,250 nights. Since we intend to examine only short term rentals with our investigation, we decided to filter out listings that had more than a 15 night minimum requirement. We settled on 15 nights because that is the average number of yearly paid vacation days a private industry worker receives after 5 years of service (US Bureau of Labor Statistics, 2017). 
+
+We also removed the listings with zero availability. Although these data points did not cause any visual anomalies, they are beyond the scope of this investigation. Additionally, we were going to remove listings with room types of "Entire home apt", but after doing some research of home sizes by bedroom in the 5 boroughs of NYC, we decided to leave this variable in. When making this decision, we decided to look at a study done by ValuePenguin titled "New York City Renters Statistics and Trends", specifically, we looked at "Home size in NYC by bedroom". The conclusion of this study was the following. "Out of the 3.45 million homes in the city, 70.5% have two bedrooms or fewer. And 8.1% of New York City's homes are studios (one-room apartments), which are nearly four times more common in New York City than throughout the U.S. as a whole." This report is based on the U.S. Census' Annual Community Survey (ACS) which has a margin of error is +/-0.2% or less for all variables in this study. Additionally, all data from this study was limited to New York's five boroughs. Therefore, due to the nature of the housing market in New York, we decided to keep the room_type variable. 
+
+*US Bureau of Labor Statistics. “Private Industry Workers Received Average of 15 Paid Vacation Days after 5 Years of Service in 2017 : The Economics Daily: U.S. Bureau of Labor Statistics.” US Bureau of Labor Statistics, 28 June 2018, https://www.bls.gov/opub/ted/2018/private-industry-workers-received-average-of-15-paid-vacation-days-after-5-years-of-service-in-2017.htm.*
+
+*ValuePenguin. "New York City Renters Statistics and Trends." ValuePenguin, 28 January, 2020, https://www.valuepenguin.com/new-york-city-renters-statistics#home-size*
+```{r}
+#Create new variable: filteredMinNights
+airBnB<-mutate(airBnB, filteredMinNights = minimum_nights)
+#replace >15 night minimum values w/ NA 
+airBnB$filteredMinNights<-replace(airBnB$filteredMinNights, airBnB$minimum_nights>15, NA)
+#replace 0 availability listing prices w/ NA 
+airBnB$filteredMinNights<-replace(airBnB$filteredMinNights, airBnB$availability_365==0, NA)
+```
+
+#### Adjusted Graph: 
+```{r fig.align="center"}
+graph4<-ggplot(data=airBnB, aes(filteredMinNights))+
+  geom_bar(na.rm=TRUE)+labs(x="Mimimum Night Stay Requirement", y="Number of Listings", title="Figure 4: NYC AirBnB Mimimum Night Stay Requirements, adjusted")+theme_classic()+theme(plot.title = element_text(hjust=0.5))
+graph4
+```
+
+
+
+## Question A.6
+
+We expect that there will be a negative correlation between a listing's minimum nightly stay requirement and the per-night-cost of sub $288USD available listings. As previously discussed (in A.4), we generalized that a host may implement a higher minimum night stay requirement in order to minimize their overhead costs. We also must take into consideration that a host may set a lower per-night rate as an incentive for customers to choose their listing over the many lodging similar choices available in New York City. Incentives like a lower price may help Airbnb customers justify committing to a longer stay. Therefore, we expect the outcome of a lower listing price to be the result of a higher minimum nights requirement, and vice versa.  
+
+
+## Question A.7
+
+#### Plot showing the relationship between filteredMinNights and filteredPrice
+```{r fig.align="center"}
+graph5<-ggplot(data=airBnB, aes(x=filteredMinNights, y = filteredPrice))+
+  geom_point(na.rm=TRUE)+geom_smooth(na.rm=TRUE)+labs(x="Minimum Number of Nights", y="Price of Listing", title="Figure 5: NYC AirBnB NYC Price vs Minimun Night Stay")+theme_classic()+theme(plot.title = element_text(hjust=0.5))
+graph5
+```
+
+
+## Question A.8 
+
+There is a slight negative correlation between a listing's minimum night stay requirement and its price. The listings that required a 4 night or less minimum stay fall under a wide range of price points. There are also more listings available with lower nightly stay requirements. This makes sense because we would assume people are more likely to book to a listing if there is less commitment required. Although the listings with lower night minimums are scattered throughout the entirety of the price range, in general, as the minimum night booking requirement increases, there is a higher concentration of listings at lower nightly price points. The majority of the listings with an eight or higher minimum night requirement fall in the sub $100USD range. Overall, the trend exhibited in Figure 5 supports our expectation that there is a negative correlation between a listing's minimum nightly stay requirement and the per-night-cost of available listings below $288USD. 
+
+
+<center> <h1>Part B</h1> </center>
+
+## Question B.1
+#### Secondary Explanatory Variable: Neighborhood_group (Borough)
+For our secondary explanatory variable, we chose to examine the neighborhood group (borough) that each listing was listed in. New York City is quite large, and it is separated into five different neighborhoods. However, we hypothesize that the popularity of each neighborhood is not the same. For example, when you think of visiting tourist destinations in New York, you are most likely thinking of places in Manhattan, like Times Square or Central Park. The epicenter of tourism and business in New York City is typically considered to be Manhattan or Brooklyn. Therefore, we are interested in investigating how a neighborhood's popularity affects the trends we observed when comparing the price of the listing and the minimum night stay requirement. Our ultimate goal is to gain insight into the cost and availability of lodging for price-conscious solo/duo tourists/travelers interested in short-term stays in New York City's most popular boroughs. Looking into the boroughs will help us better understand whether or not our conclusions formed in Part A are representative of our target scope. 
+```{r}
+summary(airBnB$neighbourhood_group)
+```
+
+## Question B.2
+#### Summary of filteredMinNights and neighbourhood_group 
+```{r}
+B2Summary<-airBnB%>%
+  filter(!is.na(filteredMinNights))%>%
+  group_by(filteredMinNights,neighbourhood_group)%>%
+  summarize(averagePrice = mean(filteredPrice, na.rm=TRUE), .groups = 'keep')
+B2Summary
+```
+
+
+## Question B.3
+#### Plot showing the relationship between filteredMinNights, filteredPrice, and neighbourhood_group
+```{r fig.align="center"}
+graph6<-ggplot(airBnB, aes(x=filteredMinNights, y=filteredPrice))+geom_point(na.rm=TRUE)+facet_wrap(~neighbourhood_group)+geom_smooth(na.rm=TRUE)+labs(x="Minimum Number of Nights", y="Price of Listing", title="Figure 6: NYC AirBnB Price vs Minimun Night Stay, seperated by Borough")+theme_classic()+theme(plot.title = element_text(hjust=0.5))
+graph6
+```
+
+
+## Question B.4 
+
+The graph produced in Figure 6 reveals that there is a difference in Airbnb popularity among the five boroughs of New York City. Additionally, the trend we observed in Figure 5 holds true for Manhattan, Brooklyn, and Queens. In those three boroughs, there is a slight negative correlation between a listing's minimum night stay requirement and its price. After separating the data by borough, the negative trend is more pronounced in these three neighborhood groups. For the most part, these observations were expected. Brooklyn and Manhattan are the most popular boroughs, and their volume and range of listings reflects this. We did not expect Queens to also exhibit this trend. Although Queens lacked listings with a minimum of 12 nights, the overall trend of the graph exhibits negative correlation between price and minimum nights as well. 
+
+However, this same trend is not observed for the Bronx and Staten Island. In those two boroughs, the graphs of price vs minimum nights do not have many data points in the upper price ranges nor do they have many data points in the higher minimum night stay values. Instead, the graphs of Staten Island and the Bronx have the majority of their data points corresponding to low price and low minimum night requirements. Overall, there is no noticeable trend in these two graphs. These observations were expected and matched our expectations because we knew that Staten Island and the Bronx are not as popular in terms of tourism in relation to the other boroughs. Therefore, there isn't enough demand to justify high minimum night stays and more "premium" prices. 
+
+
+## Question B.5 
+
+After examining Figure 5, we decided to omit listings in Queens, Staten Island and the Bronx because there are much fewer listings in those three boroughs. Additionally, Queens had the weakest negative correlation out of Manhattan, Queens, and Brooklyn. The main objective of our investigation is to examine the cost and availability of lodging for price-conscious solo/duo tourists/travelers interested in short-term stays in New York City's *most popular boroughs*. We determined the borough’s popularity by examining the volume of listings corresponding to each borough. Manhattan and Brooklyn both have over 20,000 listings whereas the other three boroughs all have less than 6,000. Omitting the less popular boroughs will provide us with a better idea of the Airbnb market in New York's most popular locations. One last thing we noticed was that price seem to increase and then decrease as minimum nights increases. We believe this is because there are a broad range of prices for 1 or two night requirements, after which price begins to 'focus in' on the general negative trend we observed.
+
+
+```{r}
+#Extract Manhattan and Brooklyn listings
+airBnB<-airBnB%>%
+  filter(neighbourhood_group=="Manhattan" | neighbourhood_group=="Brooklyn")
+```
+
+## Question B.6 Plot showing price vs minimum night stay seperated by borough
+```{r fig.align="center"}
+
+graph7<-ggplot(airBnB, aes(x=filteredMinNights, y=filteredPrice))+geom_point(na.rm=TRUE)+facet_wrap(~neighbourhood_group)+geom_smooth(na.rm=TRUE)+labs(x="Minimum Number of Nights", y="Price of Listing", title="Figure 7: NYC AirBnB NYC Price vs Minimun Night Stay,\n seperated by Borough (adjusted)")+theme_classic()+theme(plot.title = element_text(hjust=0.5))
+graph7
+
+```
+
+Figure 7 is different from Figure 6 because it omits the data from the listings in the Bronx, Queens and Staten Island. Focusing only on the Airbnb listings in Brooklyn and Manhattan ensures that the data we are analyzing is representative of our target scope. 
+
+## Question B.7 
+#### Third Explanatory Variable: room_type
+For our third explanatory variable, we chose the categorical variable, room_type. We would like to know how listings in NYC are typically offered, and how well they can compete with traditional short-term housing options such as hotels/motels. The private room and entire home/apt Airbnb listings would be the most comparable to traditional lodging hotel/motel. On the other hand, a shared room rental would likely not be something someone interested in a hotel would be interested in. Therefore, investigating the room_type variable will offer us more insight into whether or not AirBnB acts as a *competitor* or *companion* in the traditional travel industry. This variable will be used with our previous variables to help us better understand our data in a more in-depth scope. 
+
+## Question B.8 
+#### Summary Table: 
+
+```{r}
+#Create new variable: filteredRmType
+airBnB<-mutate(airBnB, filteredRmType = room_type)
+airBnB<-airBnB%>%
+  filter(filteredRmType=="Shared room" | filteredRmType=="Private room" | filteredRmType == "Entire home/apt")
+
+B8Summary<-airBnB%>%
+  filter(!is.na(filteredMinNights))%>%
+  group_by(filteredMinNights,neighbourhood_group, filteredRmType)%>%
+  summarize(averagePrice = mean(filteredPrice, na.rm=TRUE), .groups = 'keep')
+B8Summary
+```
+
+
+#### Graph: Plot showing price vs minimum night stay, seperated by borough and room type
+```{r fig.align="center", fig.width =5, fig.height = 5}
+graph8<-ggplot(airBnB, aes(x=filteredMinNights, y=filteredPrice))+geom_point(na.rm=TRUE)+facet_wrap(~neighbourhood_group+filteredRmType)+geom_smooth(na.rm=TRUE)+labs(x="Minimum Number of Nights", y="Price of Listing", title="Figure 8: NYC Price vs Minimun Night Stay,\n seperated by Borough and Room Type ")+theme_bw()+theme(plot.title = element_text(hjust=0.5))
+graph8
+```
+
+## Question B.9
+Overall, we found that there is a negative correlation between a listing's minimum nightly stay requirement and the per nightly cost of that listing. Going further, we found that the most popular boroughs (neighborhood groups) in New York City are Manhattan and Brooklyn. These are the epicenters of tourism and business, and there is a larger supply of short-term housing options for travelers. With this information in mind, we then took a look at the difference between entire home/apt, private rooms, and shared rooms, in Manhattan and Brooklyn specifically. Within New York City's two most popular boroughs, we found that the majority of Airbnb listings are for entire homes/apts and private rooms. What is more, the trends we observed between price and minimum nights at the beginning of the investigation still hold true for the entire homes/apts and private rooms in Manhattan and Brooklyn. Private rooms have a stronger negative trend. There is insufficient data for shared rooms to make the same observations. There is a much lower supply of shared rooms in the Airbnb market in New York, and the majority of them do not have multi-night stay requirements. Ultimately, we have found that the Airbnb listings in New York city targeted towards price-conscious solo/duo travelers/tourists interested in short-term stays in the most popular boroughs are competetive with traditional short-term lodging options in the city.
+
+Through our investigation we learned that the price of a listing is definitely correlated with the minimum nights requirement of the listing. We also were able to conclude that Airbnb is often a cheaper alternative to the average hotel room for single/duo travelers going on short trips. The most expensive average cost of private and shared rooms in the final part of our investigation was just over $100 per night. This is much cheaper than the average hotel cost of around $200 per night. Listings for entire homes/apt on the other hand were closer the $200 on average, and were overall more expensive and most comparable to typical hotel prices. Thus, our final conclusion is that Airbnb is definitely competitive with the hotel market for the group of travelers we were interested in investigating.
+
+One last thing we want to mention came up when comparing figure 7 and figure 8. Looking at the Manhattan section of figure 7, there is a increase in price as you reach the 12 night requirement. There is no such increase for Brooklyn. When you look for that same increase in figure 8, it only appears for entire homes/apts. We think this is evidence of a 'premium pricing' applied to very popular areas, like Midtown or SoHo, and suggests that there may be a distinct market for longer term stays within those popular areas. This would explain the unexpected increase that defies the general negative trend we observed. 
